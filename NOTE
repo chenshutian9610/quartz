@@ -56,3 +56,6 @@
     JobDetailFactoryBean        jobDataAsMap, group, jobClass, applicationContextJobDataKey
     CronTriggerFactoryBean      jobDataAsMap, group, cronExpression, jobDetail
     SchedulerFactoryBean        triggers, configLocation, autoStartup, startupDelay
+
+ps: 静态变量是 classloader 级别的，如果主线程停止则变量消失
+    但线程是 jvm 级别的，即使主线程关闭，线程仍然会执行（所以使用 scheduler 时要注意这个问题）
