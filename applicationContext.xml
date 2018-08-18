@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- spring-beans-4.0.xsd 经常写成 spring-beans-4.0.xml，报错 -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+    <bean id="myJob" class="org.springframework.scheduling.quartz.JobDetailFactoryBean"
+          p:jobClass="tree.job.MyJob">
+        <!-- 如果使用了 p:applicationContextJobDataKey="spring"，可以使用 myJob.getJobDataMap.get("spring") 访问 IoC 容器
+             但是同时也不能够将任务持久化，因为 IoC 容器的数据没有序列化 -->
+        <!-- 注意这里是 jobDataAsMap，而不是 jobDataMap，他的作用是将下面所有 entry 输入到 jobDataMap 中 -->
+        <property name="jobDataAsMap">
+            <map>
+                <entry key="userName" value="triski"/>
+            </map>
+        </property>
+    </bean>
+    <bean id="myTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean"
+          p:cronExpression="0/5 * * * * ?" p:jobDetail-ref="myJob">
+        <property name="jobDataAsMap">
+            <map>
+                <entry key="userPassword" value="1014"/>
+            </map>
+        </property>
+    </bean>
+    <!-- 如果 autoStartup 不设置为 false 时，默认初始化 IoC 容器时就会直接开始任务（使用默认的话建议设置参数 startupDelay，值为毫秒）-->
+    <!-- 在 spring 中，任务在触发器里注册，而在 Scheduler 这里只要注册触发器就可以了（触发器是 List）-->
+    <bean id="scheduler" class="org.springframework.scheduling.quartz.SchedulerFactoryBean"
+          p:configLocation="classpath:quartz.properties" p:autoStartup="false">
+        <property name="triggers">
+            <list>
+                <ref bean="myTrigger"/>
+            </list>
+        </property>
+    </bean>
+</beans>

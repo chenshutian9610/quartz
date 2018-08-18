@@ -1,0 +1,58 @@
+* quartz 基础概念
+    Job         实现 Job 接口就算一个 Job，只负责执行的逻辑
+    JobDetail   任务描述，Scheduler 执行的基本单位
+    Trigger     规定 Job 执行的时间点（触发器值由时间触发的触发器）
+    Calendar    表示一个日期集合，常用来描述法定假日，休息日等
+    Scheduler   调度容器
+    ThreadPool  任务属于多线程
+
+* Scheduler 相当于 Spring#ApplicationContext，而 JobDetail，Trigger 和 Calendar 相当于 Spring#bean，所以需要唯一标识的名字
+  JobDetail 和 Trigger 需要 name 和 group（如果没有设置组名，则为 default），而 Calendar 只需要 name
+  JobDetail 与 Trigger 是一对多的关系
+
+* Trigger（用来设置任务什么时候执行，并且设置什么时候不执行（Calendar），所以 Trigger 是 quartz 的重点）
+  SimpleTrigger 简单触发器，时间控制精度小，具体实现类为 SimpleTriggerImpl
+  CronTrigger   通过 cron 语法实现高精度控制，具体实现类为 CronTriggerImpl
+
+  * cron 表达式：（由 6 到 7 个字段组成，用空格分隔符，分别表示 " 秒 分 时 日 月 星期 [年] "）
+    ------------------------- 普通表达式 -------------------------
+    *   任一时刻
+    -   范围，如 1-12
+    ,   列表，如 MON,WED,FRI
+    /   步长序列，如 0/5 表示 0,5,10,15...
+    ------------------------- 日期与星期字段专用 -------------------------
+    ?   单纯的占位符（日期和星期必须有一个是 ?，比如一月一号是星期一，但二月一号却不一定是星期一）
+    L   在日期中为 L，在星期中为 nL（n 为数字，表示最后一个星期几）
+    C   Calendar，如 5C 在日期字段中表示 5 日之后，在星期字段中表示星期四之后
+    W   只能用于日期，如 15W 表示离 15 号最近的工作日（不能跨月）
+    #   只能用于星期，如 5#3 表示第三个星期四（在星期中，SUN 为 1，SAT 为 7）
+    ------------------------- 表达式举例 -------------------------
+    0 0 12 * * ?            每天 12:00 执行
+    0 * 12 * * ?            每天 12:00 到 12:59 每分钟执行一次
+    0/5 * * * * ?           每 5 秒执行一次
+    0 0 8 L 10 ? 2018-2020  2018 年到 2020 年的 10-31 08:00:00 执行一次
+    0 0 8 * * 6#3           每个月第三个星期五早上八点执行
+    PS：秒最好不要设置 *，这样每秒都执行很占 cpu 时间
+        写表达式的时候可以把时分秒看成一个整体，把年月日或年月星期看成一个整体
+
+* Scheduler 常用方法
+    addCalendar(calendar_name,calendar,false,false)     注册日期
+    sechduleJob(jobDetail,trigger)                      注册任务与触发器
+    rescheduleJob(triggerKey,trigger)                   继续执行任务
+
+* Job 有两种，Job 和 StatefulJob，后者是有状态的，不能用于多线程并行（需要同步）
+  普通的 Job 和 Trigger 里面都有一个 JobDataMap，用于携带信息，StatefulJob 也有，不过它的 map 是有状态的
+  Scheduler 含有一个 SchedulerContext，也是一个 map，可以用于携带信息的
+
+* 默认情况下，任务调度的全部资源都存储在内存中，当发生宕机时，只能重新开始任务，而不能从中断处继续
+  可以使用持久化任务方案解决上述问题，即将现场数据保存在数据库中
+    1.通过 quartz 提供的初始化 sql 文件创建数据表
+    2.编写 quartz.properties，配置数据源
+
+-------------------------------- spring quartz --------------------------------
+
+* 只需要在 IoC 容器中配置
+    MethodInvokingFactoryBean   通过 aop 将一个类的某个方法变成任务（不需要实现 job 接口），但不能完成序列化，即不能持久化任务，不标准
+    JobDetailFactoryBean        jobDataAsMap, group, jobClass, applicationContextJobDataKey
+    CronTriggerFactoryBean      jobDataAsMap, group, cronExpression, jobDetail
+    SchedulerFactoryBean        triggers, configLocation, autoStartup, startupDelay
